@@ -1,0 +1,31 @@
+version: "3.7"
+
+services:
+  ris-image:
+    image: 'ris_3'
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+  test:
+    image: 'ris_3'
+    command: python -m ris_3
+    volumes:
+      - type: bind
+        source: .
+        target: /work
+        read_only: True
+
+  postgres:
+    image: postgres:14
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=ris_3
+
+  clickhouse:
+    image: bitnami/clickhouse:latest
+    environment:
+      - CLICKHOUSE_ADMIN_USER=clickhouse
+      - CLICKHOUSE_ADMIN_PASSWORD=clickhouse
