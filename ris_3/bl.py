@@ -1,17 +1,20 @@
+import logging
+from typing import NamedTuple
 from random import randrange, choice, choices
 from datetime import datetime, timedelta
 
-from dataclasses import dataclass
+from tabulate import tabulate
+
+logging.basicConfig(level=logging.INFO)
+log = logging.getLogger(__name__)
 
 
-@dataclass(frozen=True)
-class Goods:
+class Goods(NamedTuple):
     name: str
     price: float
 
 
-@dataclass(frozen=True)
-class Sale:
+class Sale(NamedTuple):
     bill_id: int
     sale_date: datetime
     shop: str
@@ -45,7 +48,36 @@ def generate_sales(
         )
         for i in range(1, total_count + 1)
     )
-    # random_date = date_start + timedelta(seconds=randrange(seconds_between_dates))
+
+
+def log_goods_table(title: str, goods: tuple[Goods, ...]) -> None:
+    table = tabulate(
+        (('назва', 'ціна'), *goods),
+        headers='firstrow',
+        tablefmt='fancy_grid',
+    )
+    log.info(f'{title}\n{table}')
+
+
+def log_shops_income(title: str, shop_to_income: dict[str, float]) -> None:
+    table = tabulate(
+        (('магазин', 'прибуток'), *shop_to_income.items()),
+        headers='firstrow',
+        tablefmt='fancy_grid',
+    )
+    log.info(f'{title}\n{table}')
+
+
+def log_top(title: str, top: list[tuple[list[str], int]]) -> None:
+    table = tabulate(
+        (
+            ('товари', 'кількість'),
+            *[(', '.join(goods), count) for goods, count in top]
+        ),
+        headers='firstrow',
+        tablefmt='fancy_grid',
+    )
+    log.info(f'{title}\n{table}')
 
 
 if __name__ == '__main__':
@@ -57,11 +89,4 @@ if __name__ == '__main__':
         Goods('кава', 55),
     )
 
-    print(generate_sales(
-        total_count=10,
-        goods=goods,
-        max_goods_len=4,
-        shops=('атб', 'фора', 'сільпо'),
-        date_start=datetime(2022, 9, 17),
-        date_end=datetime(2022, 12, 17),
-    ))
+    log_goods_table('Таблиця товарів:', goods)

@@ -1,7 +1,9 @@
 import abc
+import logging
+from time import time
 from datetime import datetime
 from contextlib import contextmanager
-from typing import Union, Type
+from typing import Union, Type, Callable, TypeVar
 
 from sqlalchemy import select, func, desc
 from sqlalchemy.sql.functions import Function
@@ -13,6 +15,9 @@ from ris_3.repositories.sql.models import SqlSale
 from ris_3.repositories.sql.core import create_sql_session
 from ris_3.repositories.column.model import ColumnSale
 from ris_3.repositories.column.core import create_column_session
+
+T = TypeVar('T')
+log = logging.getLogger(__name__)
 
 
 class SalesRepository(abc.ABC):
@@ -42,6 +47,24 @@ class SalesRepository(abc.ABC):
 
         self.session.commit()
 
+    @staticmethod
+    def log_time(func: Callable[[...], T]) -> Callable[[...], T]:
+        def wrapper(self: 'SalesRepository', *args, **kwargs) -> T:
+            start = time()
+            result = func(self, *args, **kwargs)
+            exec_time = time() - start
+            repo_name = (
+                'ColumnSalesRepository'
+                if self.Model == ColumnSale
+                else 'SqlSalesRepository'
+            )
+            log.info(
+                f'{repo_name}.{func.__name__} took {exec_time} seconds'
+            )
+            return result
+        return wrapper
+
+    @log_time
     def calculate_income(
         self,
         date_start: datetime = None,
@@ -58,14 +81,7 @@ class SalesRepository(abc.ABC):
         result = self.session.execute(query)
         return result.scalar_one()
 
-    def calculate_income_by_goods(self) -> dict[str, float]:
-        query = (
-            select([self.Model.name, func.sum(self.Model.price)])
-            .group_by(self.Model.name)
-        )
-        result = self.session.execute(query)
-        return {goods: income for goods, income in result.all()}
-
+    @log_time
     def count_sales(
         self,
         goods: str = None,
@@ -90,6 +106,7 @@ class SalesRepository(abc.ABC):
         result = self.session.execute(query)
         return result.scalar_one()
 
+    @log_time
     def calculate_income_by_shops(
         self,
         date_start: datetime = None,
@@ -98,6 +115,7 @@ class SalesRepository(abc.ABC):
         query = (
             select([self.Model.shop, func.sum(self.Model.price)])
             .group_by(self.Model.shop)
+            .order_by(self.Model.shop)
         )
 
         if date_start:
@@ -113,6 +131,7 @@ class SalesRepository(abc.ABC):
     def get_calculate_top_array_agg(self) -> Function:
         raise NotImplemented
 
+    @log_time
     def calculate_top(
         self,
         items_in_bill: int,
